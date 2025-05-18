@@ -1,37 +1,47 @@
-# api.py  ---------------------------------------------------------------
+#!/usr/bin/env python3
 """
 FastAPI wrapper para o scraper Shopee
 • Endpoint POST /scrape recebe {"url": "<link>"} e devolve JSON com:
   nome, avaliação, preço, desconto, descrição, vídeo e lista "imagens"
 • Resolve Cloudflare (CloudflareBypasser) e injeta cookies se existir cookies.json
 • Timeout de 60 s por página, até 3 tentativas com back-off de 30 s
+• HOST e PORT lidos do .env (API_HOST, API_PORT)
 """
 
-import json, logging, time, re, sys
+import os
+import json
+import logging
+import time
+import re
+import sys
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from DrissionPage import ChromiumOptions, ChromiumPage
-from DrissionPage.errors import ElementNotFoundError
-from CloudflareBypasser import CloudflareBypasser
 
-# ---------- Configuração global ---------------------------------------------
-COOKIES_FILE  = Path(__file__).parent / "cookies.json"
+# --- Carrega variáveis de ambiente ---
+load_dotenv()
+API_HOST   = os.getenv("API_HOST", "127.0.0.1")
+API_PORT   = int(os.getenv("API_PORT", "8051"))
 MAX_RETRIES   = 3
 PAGE_TIMEOUT  = 60   # segundos
 BACKOFF_TIME  = 30   # segundos
+COOKIES_FILE  = Path(__file__).parent / "cookies.json"
 
-# ---------- FastAPI ----------------------------------------------------------
+# --- FastAPI setup ---
 app = FastAPI(title="Shopee Scraper API")
 
 class Req(BaseModel):
     url: str
 
-# ---------- Navegador & Helpers ---------------------------------------------
-def build_options() -> ChromiumOptions:  # FastAPI cria um navegador por request
+# --- Navegador & Helpers ---
+from DrissionPage import ChromiumOptions, ChromiumPage
+from DrissionPage.errors import ElementNotFoundError
+from CloudflareBypasser import CloudflareBypasser
+
+def build_options() -> ChromiumOptions:
     opts = ChromiumOptions()
     opts.set_argument("--start-maximized")
     opts.set_argument("--disable-blink-features=AutomationControlled")
@@ -44,9 +54,8 @@ def build_options() -> ChromiumOptions:  # FastAPI cria um navegador por request
 
 def open_and_bypass(page: ChromiumPage, cf: CloudflareBypasser, url: str):
     page.get(url)
-    cf.bypass()  # contorna Cloudflare
+    cf.bypass()
 
-# ---- utilidades de URL/imagem ----------------------------------------------
 RE_RESIZE = re.compile(r"@resize_w\d+(_nl)?")
 RE_WEBP   = re.compile(r"https://[^\s\"'\\]+\.webp")
 
@@ -75,33 +84,6 @@ DESC_SEL = ("#sll2-normal-pdp-main > div > div > div > div.container > div.wAMdp
             "div > div.page-product__content--left > "
             "div.product-detail.page-product__detail > section:nth-child(2)")
 
-# ---------- Scraper principal ----------------------------------------------
-def scrape_single(url: str) -> dict:
-    """Raspa um único link Shopee; aplica timeout e tentativas."""
-    page = ChromiumPage(addr_or_opts=build_options())
-    cf   = CloudflareBypasser(page, max_retries=5, log=False)
-
-    try:
-        # injeta cookies se existirem
-        if COOKIES_FILE.exists():
-            page.get("https://shopee.com.br")
-            page.set.cookies(json.loads(COOKIES_FILE.read_text("utf-8")))
-            page.refresh()
-
-        start = time.perf_counter()
-        open_and_bypass(page, cf, url)
-
-        while (time.perf_counter() - start) < PAGE_TIMEOUT:
-            data = _scrape_dom(page)
-            if data["nome"] and data["imagens"]:
-                return data
-            time.sleep(1)
-
-        raise TimeoutError("Timeout interno de scraping (60 s).")
-
-    finally:
-        page.quit()
-
 def _scrape_dom(page: ChromiumPage) -> dict:
     nome      = pick_text(page, ".WBVL_7 h1") or pick_text(page, ".WBVL_7 .vR6K3w")
     avaliacao = pick_text(page, ".F9RHbS")
@@ -110,28 +92,45 @@ def _scrape_dom(page: ChromiumPage) -> dict:
     descricao = pick_text(page, DESC_SEL)
     video     = pick_attr(page, "video.tpgcVs", "src")
 
-    # imagens grandes via regex
     html = page.html
     imgs = [to_large(u) for u in RE_WEBP.findall(html)]
     imagens = list(dict.fromkeys(imgs))
 
     return {
-        "nome":       nome,
-        "avaliacao":  avaliacao,
-        "preco":      preco,
-        "desconto":   desconto,
-        "imagens":    imagens,
-        "video":      video,
-        "descricao":  descricao,
+        "nome":      nome,
+        "avaliacao": avaliacao,
+        "preco":     preco,
+        "desconto":  desconto,
+        "descricao": descricao,
+        "video":     video,
+        "imagens":   imagens,
     }
 
-# ---------- Endpoint FastAPI -------------------------------------------------
+def scrape_single(url: str) -> dict:
+    page = ChromiumPage(addr_or_opts=build_options())
+    cf   = CloudflareBypasser(page, max_retries=5, log=False)
+    try:
+        if COOKIES_FILE.exists():
+            page.get("https://shopee.com.br")
+            page.set.cookies(json.loads(COOKIES_FILE.read_text("utf-8")))
+            page.refresh()
+
+        start = time.perf_counter()
+        open_and_bypass(page, cf, url)
+        while (time.perf_counter() - start) < PAGE_TIMEOUT:
+            data = _scrape_dom(page)
+            if data["nome"] and data["imagens"]:
+                return data
+            time.sleep(1)
+        raise TimeoutError("Timeout interno de scraping (60 s).")
+    finally:
+        page.quit()
+
 @app.post("/scrape")
 def scrape(req: Req):
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            data = scrape_single(req.url)
-            return data
+            return scrape_single(req.url)
         except Exception as e:
             logging.warning(f"Tentativa {attempt}/{MAX_RETRIES} falhou: {e}")
             if attempt < MAX_RETRIES:
@@ -139,14 +138,8 @@ def scrape(req: Req):
             else:
                 raise HTTPException(status_code=500, detail=str(e))
 
-# ---------- Execução standalone ---------------------------------------------
 if __name__ == "__main__":
-    """
-    Execute localmente com:
-        uvicorn api:app --host 0.0.0.0 --port 8051 --workers 1
-    """
     import uvicorn
-    load_dotenv()
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
-    uvicorn.run("api:app", host="0.0.0.0", port=8051, reload=False)
+    uvicorn.run("api:app", host=API_HOST, port=API_PORT, reload=False)
