@@ -143,10 +143,10 @@ def scrape(req: Req):
 if __name__ == "__main__":
     """
     Execute localmente com:
-        uvicorn api:app --host 0.0.0.0 --port 8000 --workers 1
+        uvicorn api:app --host 0.0.0.0 --port 8051 --workers 1
     """
     import uvicorn
     load_dotenv()
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s")
-    uvicorn.run("api:app", host="0.0.0.0", port=8001, reload=False)
+    uvicorn.run("api:app", host="0.0.0.0", port=8051, reload=False)
