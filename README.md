@@ -23,7 +23,7 @@ Este repositório contém dois scripts Python que permitem:
 1. **Clone o repositório**
 
    ```bash
-   git clone https://github.com/SEU_USUARIO/shopee-scraper.git
+   git clone https://github.com/isaacgalmeida/shopee-scraper.git
    cd shopee-scraper
    ```
 
