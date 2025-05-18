@@ -21,12 +21,11 @@ Este repositório contém dois scripts Python que permitem:
 ## Instalação
 
 1. **Clone o repositório**
+
    ```bash
    git clone https://github.com/SEU_USUARIO/shopee-scraper.git
    cd shopee-scraper
    ```
-
-````
 
 2. **Crie e ative um ambiente virtual**
 
@@ -193,4 +192,3 @@ MIT © 2025
 ```
 
 ```
-````
