@@ -1,0 +1,6 @@
+fastapi==0.110.2
+uvicorn[standard]==0.29.0   # servidor ASGI
+pydantic==2.7.0             # tipagem/validação usada pelo FastAPI
+python-dotenv==1.0.1        # carrega variáveis de ambiente
+drissionpage==4.2.6         # Chromium embedado + API de automação
+CloudflareBypasser==0.4.1   # contorna desafios Cloudflare
