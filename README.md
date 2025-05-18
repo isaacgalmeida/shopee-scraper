@@ -1,6 +1,3 @@
-Aqui está o **README.md** completo, com todos os trechos de comando e código corretamente formatados em blocos de Markdown. Você pode copiar tudo de uma vez que os blocos `bash`, `json` e `dockerfile` já estarão corretos.
-
-````markdown
 # Shopee Scraper API
 
 Este repositório contém dois scripts Python que permitem:
@@ -28,6 +25,7 @@ Este repositório contém dois scripts Python que permitem:
    git clone https://github.com/SEU_USUARIO/shopee-scraper.git
    cd shopee-scraper
    ```
+
 ````
 
 2. **Crie e ative um ambiente virtual**
@@ -195,3 +193,4 @@ MIT © 2025
 ```
 
 ```
+````
