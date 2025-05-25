@@ -1,6 +1,5 @@
-fastapi==0.110.2
-uvicorn[standard]==0.29.0   # servidor ASGI
-pydantic==2.7.0             # tipagem/validação usada pelo FastAPI
-python-dotenv==1.0.1        # carrega variáveis de ambiente
-drissionpage==4.2.6         # Chromium embedado + API de automação
-CloudflareBypasser==0.4.1   # contorna desafios Cloudflare
+fastapi           # framework para construir a API :contentReference[oaicite:0]{index=0}
+uvicorn           # servidor ASGI para executar a aplicação :contentReference[oaicite:1]{index=1}
+python-dotenv     # carregamento de variáveis de ambiente do .env :contentReference[oaicite:2]{index=2}
+DrissionPage      # automação de navegador e requests (ChromiumPage) :contentReference[oaicite:3]{index=3}
+CloudflareBypasser  # módulo para contornar Cloudflare (CloudflareBypasser) :contentReference[oaicite:4]{index=4}
